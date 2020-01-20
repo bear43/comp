@@ -1,0 +1,16 @@
+boolean
+else
+false
+for
+if
+integer
+next
+read
+real
+ass
+do
+to
+true
+while
+write
+:
