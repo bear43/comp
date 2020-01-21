@@ -33,6 +33,14 @@ public class SyntaxAnalysis {
 
     private static String lastError;
 
+    private static final int MAX_COMPLEX_ITERATION = 20;
+
+    private static int complexIteration = 0;
+
+    private static boolean needGetNext = true;
+
+    private static boolean doubleCheck = true;
+
     public static String run(LexemeInput lexemeInput) {
         SyntaxAnalysis.lexemeInput = lexemeInput;
 
@@ -96,11 +104,15 @@ public class SyntaxAnalysis {
             if (!(description() || operator())) {
                 return false;
             }
-            if (!(isNext("\\n") || isNext(":"))) {
+            if ((isNext("\\n"))) {
                 line++;
             }
             column = 0;
-            getNext();
+/*            if(needGetNext) {
+                //getNext();
+            } else {
+                needGetNext = true;
+            }*/
             readNewLines();
         } while (!isNext("}"));
         return true;
@@ -199,7 +211,7 @@ public class SyntaxAnalysis {
         if(!type()) return setLastError("There is unknown type of variables");
         int type = next.getNumber();
         getNext();
-        if(!isNextCloseBracket(false)) return setLastError("Unclosed variables description");
+        if(!isNextCloseBracket()) return setLastError("Unclosed variables description");
         addVariables(described, type, false);
         return true;
     }
@@ -228,21 +240,32 @@ public class SyntaxAnalysis {
 
     private static boolean complexLowPriorityOperator() throws NotDefinedException, TypesMismatchException {
         return assign() || condition() || fixedCycle() ||
-                conditionalCycle() || input() || output() || complex();
+                conditionalCycle() || input() || output() || (!isNext(";") && complex());
     }
 
     private static boolean complex() throws NotDefinedException, TypesMismatchException {
+        doubleCheck = !doubleCheck;
+        if(doubleCheck) {
+            return setLastError("[complex] Expected operator, found nothing");
+        }
         if(isNextNewLine(false)) return setLastError("[complex] Expected operator, found new line");
-        if(!complexLowPriorityOperator()) {
+        if(complexIteration >= MAX_COMPLEX_ITERATION) return setLastError("[complex] Not expected symbol");
+        complexIteration++;
+        if(!operator()) {
+            complexIteration--;
             return false;
         }
         if (!isNext(":") && !isNext("\\n")) {
+            complexIteration--;
             return true;
         } else {
             getNext();
-            if (!operator())
+            if (!operator()) {
+                complexIteration--;
                 return setLastError("[complex] Expected operator");
+            }
         }
+        complexIteration--;
         return true;
     }
 
@@ -261,10 +284,11 @@ public class SyntaxAnalysis {
         if(!expression())
             return false;
         checkAssignType(type, expressionStack.pop());
-        if(isNextSymbol("to", false) || isNextCloseBracket()) {
+/*        if(isNextSymbol("to", false) || isNextNewLine(false)) {
             return true;
         }
-        return setLastError("Unexpected end of the line, while assigning a variable");
+        return setLastError("Unexpected end of the line, while assigning a variable");*/
+        return true;
     }
 
     private static void checkAssignType(String left, String right) throws TypesMismatchException {
@@ -361,7 +385,7 @@ public class SyntaxAnalysis {
                 return false;
             getNext();
         }
-        return isNextCloseBracket(false) || setLastError("[write] waiting for closed bracket");
+        return true;
     }
 
     private static boolean identifier() throws NotDefinedException {
@@ -459,6 +483,7 @@ public class SyntaxAnalysis {
             if (!multiplier())
                 return false;
             getNext();
+            needGetNext = false;
         }
         return true;
     }
@@ -508,7 +533,7 @@ public class SyntaxAnalysis {
     }
 
     private static boolean relationshipOperation() {
-        if(isNext("!=") || isNext("==") || isNext("<") ||
+        if(isNext("!=") || isNext("=") || isNext("<") ||
                 isNext("<=") || isNext(">") || isNext(">=")){
             pushOperation();
             return true;
@@ -560,9 +585,10 @@ public class SyntaxAnalysis {
     private static void getNext() {
         try {
             next = lexemeInput.getLexeme();
+            needGetNext = true;
             column++;
-        } catch (Exception ignored) {
-
+        } catch (Exception ex) {
+            //ex.printStackTrace();
         }
     }
 }

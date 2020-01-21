@@ -48,10 +48,38 @@ public class LexicalAnalysis {
                     if(firstSymbol != null && firstSymbol != '{') {
                         return "Program has no entry";
                     }
+                    if(next == '}') {
+                        lexemeOutput.out(2, delimiters.look("}"));
+                        break;
+                    }
                     buffer.append(next);
                     if (isWhiteSpace()) {
                         getChar();
-                    } else if (next == '/') {
+                    } else if (next == ':' || next == '\n') {
+                        lexemeOutput.out(2, delimiters.look(buffer));
+                        buffer.delete(0, buffer.length());
+                        getChar();
+                        while(isWhiteSpace()) {
+                            getChar();
+                        }
+                        if(isLetter()) {
+                            while(isLetter()) {
+                                buffer.append(next);
+                                getChar();
+                            }
+                            if(words.look(buffer) == -1) {
+                                if(identifiers.look(buffer) == -1) {
+                                    throw new UnexpectedSymbolException("Expected operator after : or \\n");
+                                } else {
+                                    lexemeOutput.out(4, identifiers.look(buffer));
+                                }
+                            } else {
+                                lexemeOutput.out(1, words.look(buffer));
+                            }
+                        } else {
+                            throw new UnexpectedSymbolException("Expected operator after : or \\n");
+                        }
+                    }else if (next == '/') {
                         getChar();
                         if (next == '*') {
                             getChar();
@@ -85,7 +113,11 @@ public class LexicalAnalysis {
                     } else if (next == '|') {
                         checkDoubleSymbol('|');
                     } else if (next == '=') {
-                        checkDoubleSymbol('=');
+                        lexemeOutput.out(2, delimiters.look(buffer));
+                        getChar();
+                        if(next == '=') {
+                            throw new UnexpectedSymbolException("unexp symbol");
+                        }
                     } else if (next == '&') {
                         checkDoubleSymbol('&');
                     } else if (next == '!' || next == '<' || next == '>' || next == ':') {
@@ -103,13 +135,13 @@ public class LexicalAnalysis {
                     }
                     buffer.delete(0, buffer.length());
                 }
-                result = lastSymbol == '}' ? "Ok" : "Unexpected end of program";
+                result = lastSymbol == '}' || next == '}' ? "Ok" : "Unexpected end of program";
             } catch (UnknownDelimiterException e) {
                 result = "Unknown delimiter at " + line + ":" + column;
             } catch (NumberFormatException e) {
                 result = "Unexpected symbol in number at " + line + ":" + column;
             } catch (Exception e) {
-                result = "General error";
+                result = "General error: " + e.getMessage();
             }
         identifiers.out();
         numbers.out();
@@ -293,6 +325,9 @@ public class LexicalAnalysis {
     private static void real() throws UnexpectedSymbolException {
         buffer.append(next);
         getChar();
+        if(!isDigit()) {
+            throw new UnexpectedSymbolException("After real point expect digit but not digit found");
+        }
         while (isDigit()) {
             buffer.append(next);
             getChar();
