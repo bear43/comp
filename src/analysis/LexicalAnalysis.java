@@ -1,5 +1,6 @@
 package analysis;
 
+import entity.Lexeme;
 import exception.NumberFormatException;
 import exception.UnexpectedSymbolException;
 import exception.UnknownDelimiterException;
@@ -45,97 +46,116 @@ public class LexicalAnalysis {
         getChar();
             try {
                 while (next != 65535) {
-                    if(firstSymbol != null && firstSymbol != '{') {
-                        return "Program has no entry";
-                    }
-                    if(next == '}') {
-                        lexemeOutput.out(2, delimiters.look("}"));
-                        break;
-                    }
-                    buffer.append(next);
-                    if (isWhiteSpace()) {
-                        getChar();
-                    } else if (next == ':' || next == '\n') {
-                        lexemeOutput.out(2, delimiters.look(buffer));
-                        buffer.delete(0, buffer.length());
-                        getChar();
-                        while(isWhiteSpace()) {
+                    if(firstSymbol == null || firstSymbol != '{') {
+                        if (next == '/') {
                             getChar();
+                            if (next == '*') {
+                                do {
+                                    getChar();
+                                } while (next != '*');
+                                getChar();
+                                if (next == '/') {
+                                    getChar();
+                                }
+                            }
                         }
-                        if(isLetter()) {
-                            while(isLetter()) {
-                                buffer.append(next);
+                    }
+                    if(firstSymbol != null && firstSymbol == '{') {
+                        if (next == '}') {
+                            lexemeOutput.out(2, delimiters.look("}"));
+                            break;
+                        }
+                        buffer.append(next);
+                        if (isWhiteSpace()) {
+                            getChar();
+                        } else if (next == ':' || next == '\n') {
+                            lexemeOutput.out(2, delimiters.look(buffer));
+                            buffer.delete(0, buffer.length());
+                            getChar();
+                            while (isWhiteSpace()) {
                                 getChar();
                             }
-                            if(words.look(buffer) == -1) {
-                                if(identifiers.look(buffer) == -1) {
-                                    throw new UnexpectedSymbolException("Expected operator after : or \\n");
+                            if (isLetter()) {
+                                while (isLetter()) {
+                                    buffer.append(next);
+                                    getChar();
+                                }
+                                if (words.look(buffer) == -1) {
+                                    if (identifiers.look(buffer) == -1) {
+                                        throw new UnexpectedSymbolException("Expected operator after : or \\n");
+                                    } else {
+                                        lexemeOutput.out(4, identifiers.look(buffer));
+                                    }
                                 } else {
-                                    lexemeOutput.out(4, identifiers.look(buffer));
+                                    lexemeOutput.out(1, words.look(buffer));
                                 }
                             } else {
-                                lexemeOutput.out(1, words.look(buffer));
+                                throw new UnexpectedSymbolException("Expected operator after : or \\n");
                             }
-                        } else {
-                            throw new UnexpectedSymbolException("Expected operator after : or \\n");
-                        }
-                    }else if (next == '/') {
-                        getChar();
-                        if (next == '*') {
+                        } else if (next == '/') {
                             getChar();
-                            while (next != '/') {
-                                while (next != '*') {
+                            if (next == '*') {
+                                getChar();
+                                while (next != '/') {
+                                    while (next != '*') {
+                                        getChar();
+                                    }
                                     getChar();
                                 }
                                 getChar();
+                            } else {
+                                int index = delimiters.look(buffer);
+                                if (index != -1) {
+                                    lexemeOutput.out(2, index);
+                                }
                             }
+                        } else if (isLetter()) {
                             getChar();
-                        } else {
-                            int index = delimiters.look(buffer);
-                            if(index != -1) {
-                                lexemeOutput.out(2, index);
+                            while (isLetter() || isDigit()) {
+                                buffer.append(next);
+                                getChar();
                             }
-                        }
-                    } else if (isLetter()) {
-                        getChar();
-                        while (isLetter() || isDigit()) {
-                            buffer.append(next);
-                            getChar();
-                        }
-                        int number = words.look(buffer);
-                        if (number != -1) {
-                            lexemeOutput.out(1, number);
-                        } else {
-                            lexemeOutput.out(4, identifiers.add(buffer.toString()));
-                        }
-                    } else if (isDigit() || next == '.') {
-                        checkNumber();
-                    } else if (next == '|') {
-                        checkDoubleSymbol('|');
-                    } else if (next == '=') {
-                        lexemeOutput.out(2, delimiters.look(buffer));
-                        getChar();
-                        if(next == '=') {
-                            throw new UnexpectedSymbolException("unexp symbol");
-                        }
-                    } else if (next == '&') {
-                        checkDoubleSymbol('&');
-                    } else if (next == '!' || next == '<' || next == '>' || next == ':') {
-                        getChar();
-                        if (next == '=' && lastSymbol != ':') {
-                            buffer.append(next);
+                            int number = words.look(buffer);
+                            if (number != -1) {
+                                lexemeOutput.out(1, number);
+                            } else {
+                                lexemeOutput.out(4, identifiers.add(buffer.toString()));
+                            }
+                        } else if (isDigit() || next == '.') {
+                            checkNumber();
+                        } else if (next == '|') {
+                            checkDoubleSymbol('|');
+                        } else if (next == '=') {
                             lexemeOutput.out(2, delimiters.look(buffer));
                             getChar();
-                        } else {
+                            if (next == '=') {
+                                throw new UnexpectedSymbolException("unexp symbol");
+                            }
+                        } else if (next == '&') {
+                            checkDoubleSymbol('&');
+                        } else if (next == '!' || next == '<' || next == '>' || next == ':') {
+                            getChar();
+                            if (next == '=' && lastSymbol != ':') {
+                                buffer.append(next);
+                                lexemeOutput.out(2, delimiters.look(buffer));
+                                getChar();
+                            } else {
+                                lexemeOutput.out(2, delimiters.look(buffer));
+                            }
+                        } else if (delimiters.look(buffer) != -1) {
                             lexemeOutput.out(2, delimiters.look(buffer));
+                            getChar();
                         }
-                    } else if (delimiters.look(buffer) != -1) {
-                        lexemeOutput.out(2, delimiters.look(buffer));
+                    } else {
                         getChar();
                     }
                     buffer.delete(0, buffer.length());
                 }
-                result = lastSymbol == '}' || next == '}' ? "Ok" : "Unexpected end of program";
+                if(firstSymbol != '{') {
+                    result = "Program has no entry '{'";
+                } else {
+                    result = lastSymbol == '}' || next == '}' ? "Ok" : "Unexpected end of program";
+                }
             } catch (UnknownDelimiterException e) {
                 result = "Unknown delimiter at " + line + ":" + column;
             } catch (NumberFormatException e) {
@@ -156,7 +176,7 @@ public class LexicalAnalysis {
             lastSymbol = next;
         }
         next = textInput.getChar();
-        if (firstSymbol == null && !Character.isWhitespace(next)) {
+        if ((firstSymbol == null || firstSymbol != '{') && !Character.isWhitespace(next)) {
             firstSymbol = next;
         }
     }

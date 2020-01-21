@@ -92,6 +92,7 @@ public class SyntaxAnalysis {
 
     private static boolean program() throws SemanticsException {
         getNext();
+        readNewLines();
         if(!isNext("{")) {
             return false;
         } else {
@@ -142,6 +143,19 @@ public class SyntaxAnalysis {
         return isNextNewLine(true);
     }
 
+    private static boolean isNextVariable(boolean doGetNext) {
+        if(identifiers.contains(new Identifier(next.getNumber()))) {
+            if(doGetNext) getNext();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private static boolean isNextVariable() {
+        return isNextVariable(true);
+    }
+
     private static boolean isNextComma(boolean doGetNext) {
         return isNextSymbol(",", doGetNext);
     }
@@ -161,7 +175,7 @@ public class SyntaxAnalysis {
     private static boolean addVariable(List<Identifier> described, int currentId, boolean doGetNext) {
         if(describedIdentifier()) {
             Identifier identifier = new Identifier(currentId);
-            if(isVariableDefined(identifier)) return setLastError("Variable is already defined");
+            if(isVariableDefined(identifier)) return setLastError("Variable defined again");
             described.add(identifier);
             if(doGetNext) getNext();
             return true;
@@ -201,7 +215,7 @@ public class SyntaxAnalysis {
         buffer = next;
         if(!addVariable(described,next.getNumber())) return false;
         if (isNext("ass")){
-            return setLastError("Cannot bind value to variable right here");
+            return setLastError("Attempt to assign not defined variable");
         }
         do {
             if (isNextComma()) {
@@ -212,6 +226,9 @@ public class SyntaxAnalysis {
         int type = next.getNumber();
         getNext();
         if(!isNextCloseBracket()) return setLastError("Unclosed variables description");
+        for(Identifier identifier : described) {
+            if(isVariableDefined(identifier)) throw new AlreadyDefinedException();
+        }
         addVariables(described, type, false);
         return true;
     }
@@ -246,7 +263,7 @@ public class SyntaxAnalysis {
     private static boolean complex() throws NotDefinedException, TypesMismatchException {
         doubleCheck = !doubleCheck;
         if(doubleCheck) {
-            return setLastError("[complex] Expected operator, found nothing");
+            return false;
         }
         if(isNextNewLine(false)) return setLastError("[complex] Expected operator, found new line");
         if(complexIteration >= MAX_COMPLEX_ITERATION) return setLastError("[complex] Not expected symbol");
