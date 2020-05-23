@@ -27,6 +27,7 @@ public class LexemeOutput {
         stringBuilder.append(table).append(',').append(entry).append('\n');
         try {
             writer.write(stringBuilder.toString());
+            writer.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }

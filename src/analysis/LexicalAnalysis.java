@@ -30,6 +30,14 @@ public class LexicalAnalysis {
 
     private static Character firstSymbol;
 
+    private static boolean isNextCommentClose() {
+        if(next == '*') {
+            getChar();
+            return next == '/';
+        }
+        return false;
+    }
+
     public static String run(TextInput textInput, LexemeOutput lexemeOutput) {
         LexicalAnalysis.textInput = textInput;
         LexicalAnalysis.lexemeOutput = lexemeOutput;
@@ -52,11 +60,8 @@ public class LexicalAnalysis {
                             if (next == '*') {
                                 do {
                                     getChar();
-                                } while (next != '*');
+                                } while (!isNextCommentClose());
                                 getChar();
-                                if (next == '/') {
-                                    getChar();
-                                }
                             }
                         }
                     }
@@ -82,7 +87,7 @@ public class LexicalAnalysis {
                                 }
                                 if (words.look(buffer) == -1) {
                                     if (identifiers.look(buffer) == -1) {
-                                        throw new UnexpectedSymbolException("Expected operator after : or \\n");
+                                        throw new UnexpectedSymbolException("Expected operator/type after : or \\n");
                                     } else {
                                         lexemeOutput.out(4, identifiers.look(buffer));
                                     }
@@ -90,7 +95,7 @@ public class LexicalAnalysis {
                                     lexemeOutput.out(1, words.look(buffer));
                                 }
                             } else {
-                                throw new UnexpectedSymbolException("Expected operator after : or \\n");
+                                throw new UnexpectedSymbolException("Expected operator/type after : or \\n");
                             }
                         } else if (next == '/') {
                             getChar();
@@ -118,33 +123,42 @@ public class LexicalAnalysis {
                             int number = words.look(buffer);
                             if (number != -1) {
                                 lexemeOutput.out(1, number);
-                            } else {
-                                lexemeOutput.out(4, identifiers.add(buffer.toString()));
+                            }
+                            else {
+                                number = delimiters.look(buffer);
+                                if(number != -1) {
+                                    lexemeOutput.out(2, number);
+                                } else {
+                                    lexemeOutput.out(4, identifiers.add(buffer.toString()));
+                                }
                             }
                         } else if (isDigit() || next == '.') {
                             checkNumber();
-                        } else if (next == '|') {
-                            checkDoubleSymbol('|');
                         } else if (next == '=') {
                             lexemeOutput.out(2, delimiters.look(buffer));
                             getChar();
                             if (next == '=') {
                                 throw new UnexpectedSymbolException("unexp symbol");
                             }
-                        } else if (next == '&') {
-                            checkDoubleSymbol('&');
-                        } else if (next == '!' || next == '<' || next == '>' || next == ':') {
+                        } else if (next == '<' || next == '>') {
                             getChar();
                             if (next == '=' && lastSymbol != ':') {
                                 buffer.append(next);
                                 lexemeOutput.out(2, delimiters.look(buffer));
                                 getChar();
                             } else {
+                                if(next == '>') {
+                                    buffer.append(next);
+                                    getChar();
+                                }
                                 lexemeOutput.out(2, delimiters.look(buffer));
                             }
                         } else if (delimiters.look(buffer) != -1) {
                             lexemeOutput.out(2, delimiters.look(buffer));
                             getChar();
+                        }
+                        else {
+                            throw new UnknownDelimiterException();
                         }
                     } else {
                         getChar();
@@ -178,6 +192,9 @@ public class LexicalAnalysis {
         next = textInput.getChar();
         if ((firstSymbol == null || firstSymbol != '{') && !Character.isWhitespace(next)) {
             firstSymbol = next;
+        }
+        if(next == '\n') {
+            lexemeOutput.out(2, delimiters.look("\\n"));
         }
     }
 
@@ -453,7 +470,7 @@ public class LexicalAnalysis {
         if(next == '\n'){
             line++;
             column = 0;
-            lexemeOutput.out(2, 0);
+            //lexemeOutput.out(2, 0);
         }
         return next == ' ' || next == '\r' || next == '\n' || next == '\t';
     }

@@ -59,7 +59,7 @@ public class SyntaxAnalysis {
             if(program()){
                 result = "Ok";
             } else {
-                result = SyntaxAnalysis.lastError;
+                result = SyntaxAnalysis.lastError == null ? "" : SyntaxAnalysis.lastError;
             }
         } catch (AlreadyDefinedException e){
             result = "Defined variable was defined again";
@@ -72,7 +72,9 @@ public class SyntaxAnalysis {
         } catch (Exception e){
             result = "General error";
         }
-        System.out.println(line + ":" + column);
+        if(!result.equals("Ok")) {
+            System.out.println(line + ":" + column);
+        }
         return result;
     }
 
@@ -80,7 +82,7 @@ public class SyntaxAnalysis {
         char firstSymbol = lexeme.charAt(0);
         int table;
         int number;
-        if (firstSymbol >= 97 && firstSymbol <= 122) {
+        if (firstSymbol >= 97 && firstSymbol <= 122 && !lexeme.equals("not") && !lexeme.equals("or") && !lexeme.equals("and")) {
             table = 1;
             number = words.look(lexeme);
         } else {
@@ -92,29 +94,23 @@ public class SyntaxAnalysis {
 
     private static boolean program() throws SemanticsException {
         getNext();
-        readNewLines();
+        line += readNewLines();
         if(!isNext("{")) {
-            return false;
+            return setLastError("Program must start from '{' entry point");
         } else {
-            do {
+            getNext();
+            while(isNext("\\n")) {
                 getNext();
+                line++;
+                column = 0;
             }
-            while(isNext("\\n"));
         }
         do {
             if (!(description() || operator())) {
-                return false;
-            }
-            if ((isNext("\\n"))) {
-                line++;
+                return isNext("}");
             }
             column = 0;
-/*            if(needGetNext) {
-                //getNext();
-            } else {
-                needGetNext = true;
-            }*/
-            readNewLines();
+            line += readNewLines();
         } while (!isNext("}"));
         return true;
     }
@@ -204,8 +200,12 @@ public class SyntaxAnalysis {
         return false;
     }
 
-    private static void readNewLines() {
-        while(isNextNewLine());
+    private static int readNewLines() {
+        int lineCount = 0;
+        while(isNextNewLine()) {
+            lineCount++;
+        }
+        return lineCount;
     }
 
     private static boolean description() throws AlreadyDefinedException {
@@ -276,6 +276,7 @@ public class SyntaxAnalysis {
             complexIteration--;
             return true;
         } else {
+            if(isNext("\\n")) line++;
             getNext();
             if (!operator()) {
                 complexIteration--;
@@ -459,7 +460,7 @@ public class SyntaxAnalysis {
             } else {
                 expressionStack.push(INTEGER);
             }
-        } else if(operation.equals("||") || operation.equals("&&")) {
+        } else if(operation.equals("or") || operation.equals("and")) {
             if(!operand1.equals(BOOLEAN) || !operand2.equals(BOOLEAN)){
                 throw new TypesMismatchException();
             }
@@ -515,11 +516,7 @@ public class SyntaxAnalysis {
                 return false;
             //getNext();
             return isNext(")");
-        } else if(identifier() || number() || logical()){
-            return true;
-        } else {
-            return false;
-        }
+        } else return identifier() || number() || logical();
     }
 
     private static boolean number() {
@@ -550,7 +547,7 @@ public class SyntaxAnalysis {
     }
 
     private static boolean relationshipOperation() {
-        if(isNext("!=") || isNext("=") || isNext("<") ||
+        if(isNext("<>") || isNext("=") || isNext("<") ||
                 isNext("<=") || isNext(">") || isNext(">=")){
             pushOperation();
             return true;
